@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
@@ -17,7 +19,9 @@ import (
 )
 
 var _ resource.Resource = &RoleResource{}
+var _ resource.ResourceWithConfigure = &RoleResource{}
 var _ resource.ResourceWithImportState = &RoleResource{}
+var _ resource.ResourceWithConfigValidators = &RoleResource{}
 
 func NewRoleResource() resource.Resource {
 	return &RoleResource{}
@@ -350,6 +354,15 @@ func (r *RoleResource) ImportState(
 
 	// Append state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+}
+
+func (r *RoleResource) ConfigValidators(ctx context.Context) []resource.ConfigValidator {
+	return []resource.ConfigValidator{
+		resourcevalidator.AtLeastOneOf(
+			path.MatchRoot("inherited_roles"),
+			path.MatchRoot("privileges"),
+		),
+	}
 }
 
 func (r *RoleResource) checkClient(diag diag.Diagnostics) bool {
