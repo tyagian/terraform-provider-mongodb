@@ -40,3 +40,9 @@ run: build
 clean:
 	go clean
 	rm -rf ${DIST_DIR}
+
+
+.PHONY: docs
+docs:
+	go get .
+	go generate ./...
