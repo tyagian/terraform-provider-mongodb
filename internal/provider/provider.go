@@ -46,7 +46,7 @@ func (p *MongodbProvider) Metadata(_ context.Context, _ provider.MetadataRequest
 
 func (p *MongodbProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "MongoDB user management provider",
+		MarkdownDescription: "MongoDB user and role management",
 
 		Attributes: map[string]schema.Attribute{
 			"host": schema.ListAttribute{
@@ -73,11 +73,11 @@ func (p *MongodbProvider) Schema(_ context.Context, _ provider.SchemaRequest, re
 				Optional:            true,
 			},
 			"tls": schema.BoolAttribute{
-				MarkdownDescription: "TLS enabled",
+				MarkdownDescription: "Enable TLS",
 				Optional:            true,
 			},
 			"insecure_skip_verify": schema.BoolAttribute{
-				MarkdownDescription: "Insecure TLS enabled",
+				MarkdownDescription: "Insecure TLS",
 				Optional:            true,
 			},
 		},

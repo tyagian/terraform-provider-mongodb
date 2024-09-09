@@ -60,11 +60,12 @@ func (r *RoleResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 			"database": schema.StringAttribute{
 				MarkdownDescription: "Role database name",
 				Optional:            true,
+				Computed:            true,
 				Default:             stringdefault.StaticString("admin"),
 			},
 			"inherited_role": schema.SetNestedAttribute{
 				MarkdownDescription: "MongoDB inherited roles",
-				Required:            false,
+				Optional:            true,
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"role": schema.StringAttribute{
@@ -80,10 +81,11 @@ func (r *RoleResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 			},
 			"privilege": schema.SetNestedAttribute{
 				MarkdownDescription: "MongoDB role privileges",
-				Required:            false,
+				Optional:            true,
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"resource": schema.ObjectAttribute{
+							MarkdownDescription: "Resource configuration",
 							AttributeTypes: map[string]attr.Type{
 								"db":         types.StringType,
 								"collection": types.StringType,

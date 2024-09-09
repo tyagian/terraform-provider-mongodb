@@ -64,6 +64,7 @@ func (r *UserResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 			"database": schema.StringAttribute{
 				MarkdownDescription: "Auth database name",
 				Optional:            true,
+				Computed:            true,
 				Default:             stringdefault.StaticString("admin"),
 			},
 			"role": schema.SetNestedAttribute{
