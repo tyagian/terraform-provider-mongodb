@@ -3,12 +3,12 @@
 page_title: "mongodb_role Resource - mongodb"
 subcategory: ""
 description: |-
-  Role resource
+  MongoDB Role resource
 ---
 
 # mongodb_role (Resource)
 
-Role resource
+MongoDB Role resource
 
 
 
@@ -22,33 +22,31 @@ Role resource
 ### Optional
 
 - `database` (String) Role database name
-- `inherited_role` (Attributes Set) MongoDB inherited roles (see [below for nested schema](#nestedatt--inherited_role))
-- `privilege` (Attributes Set) MongoDB role privileges (see [below for nested schema](#nestedatt--privilege))
+- `inherited_roles` (Attributes Set) Set of MongoDB inherited roles (see [below for nested schema](#nestedatt--inherited_roles))
+- `privileges` (Attributes Set) Set of MongoDB role privileges (see [below for nested schema](#nestedatt--privileges))
 
-### Read-Only
-
-- `id` (String) The ID of this resource.
-- `last_updated` (String)
-
-<a id="nestedatt--inherited_role"></a>
-### Nested Schema for `inherited_role`
+<a id="nestedatt--inherited_roles"></a>
+### Nested Schema for `inherited_roles`
 
 Required:
 
-- `db` (String) Target database name
 - `role` (String) Role name
 
+Optional:
 
-<a id="nestedatt--privilege"></a>
-### Nested Schema for `privilege`
+- `db` (String) Target database name
+
+
+<a id="nestedatt--privileges"></a>
+### Nested Schema for `privileges`
 
 Required:
 
 - `actions` (Set of String) List of actions
-- `resource` (Object) Resource configuration (see [below for nested schema](#nestedatt--privilege--resource))
+- `resource` (Object) Resource configuration (see [below for nested schema](#nestedatt--privileges--resource))
 
-<a id="nestedatt--privilege--resource"></a>
-### Nested Schema for `privilege.resource`
+<a id="nestedatt--privileges--resource"></a>
+### Nested Schema for `privileges.resource`
 
 Optional:
 

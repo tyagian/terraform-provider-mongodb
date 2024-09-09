@@ -17,7 +17,7 @@ MongoDB user and role management
 
 ### Required
 
-- `host` (List of String) MongoDB hosts
+- `hosts` (List of String) MongoDB hosts
 - `password` (String, Sensitive) Password
 - `username` (String, Sensitive) Username
 

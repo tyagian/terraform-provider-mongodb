@@ -7,6 +7,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 type User struct {
@@ -59,14 +60,30 @@ func (p *Privileges) ToTerraformSet(ctx context.Context) (*types.Set, diag.Diagn
 	return &privilegesList, nil
 }
 
+func (p *Privileges) toBson() bson.A {
+	out := bson.A{}
+
+	for _, privilege := range *p {
+		out = append(out, bson.M{
+			"resource": bson.M{
+				"db":         privilege.Resource.DB,
+				"collection": privilege.Resource.Collection,
+			},
+			"actions": privilege.Actions,
+		})
+	}
+
+	return out
+}
+
 type ShortRole struct {
-	Role string `bson:"role"`
-	DB   string `bson:"db"`
+	Role string `bson:"role" tfsdk:"role"`
+	DB   string `bson:"db" tfsdk:"db"`
 }
 
 var shortRoleAttributeTypes = map[string]attr.Type{
-	"role":     types.StringType,
-	"database": types.StringType,
+	"role": types.StringType,
+	"db":   types.StringType,
 }
 
 type ShortRoles []ShortRole
@@ -94,6 +111,16 @@ func (r *ShortRoles) ToTerraformSet(ctx context.Context) (*types.Set, diag.Diagn
 	}
 
 	return &rolesList, nil
+}
+
+func (r *ShortRoles) toBson() bson.A {
+	out := bson.A{}
+
+	for _, role := range *r {
+		out = append(out, bson.M{"role": role.Role, "db": role.DB})
+	}
+
+	return out
 }
 
 type Role struct {

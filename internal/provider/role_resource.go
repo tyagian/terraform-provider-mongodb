@@ -28,12 +28,9 @@ type RoleResource struct {
 }
 
 type RoleResourceModel struct {
-	ID          types.String `tfsdk:"id"`
-	LastUpdated types.String `tfsdk:"last_updated"`
-
 	Name           types.String `tfsdk:"name"`
 	Database       types.String `tfsdk:"database"`
-	InheritedRoles types.Set    `tfsdk:"inherited_role"`
+	InheritedRoles types.Set    `tfsdk:"inherited_roles"`
 	Privileges     types.Set    `tfsdk:"privileges"`
 }
 
@@ -43,16 +40,9 @@ func (r *RoleResource) Metadata(_ context.Context, req resource.MetadataRequest,
 
 func (r *RoleResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Role resource",
+		MarkdownDescription: "MongoDB Role resource",
 
 		Attributes: map[string]schema.Attribute{
-			"id": schema.StringAttribute{
-				Computed: true,
-			},
-			"last_updated": schema.StringAttribute{
-				Computed: true,
-			},
-
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Name of the role",
 				Required:            true,
@@ -61,10 +51,10 @@ func (r *RoleResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 				MarkdownDescription: "Role database name",
 				Optional:            true,
 				Computed:            true,
-				Default:             stringdefault.StaticString("admin"),
+				Default:             stringdefault.StaticString(defaultDatabase),
 			},
-			"inherited_role": schema.SetNestedAttribute{
-				MarkdownDescription: "MongoDB inherited roles",
+			"inherited_roles": schema.SetNestedAttribute{
+				MarkdownDescription: "Set of MongoDB inherited roles",
 				Optional:            true,
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
@@ -74,13 +64,15 @@ func (r *RoleResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 						},
 						"db": schema.StringAttribute{
 							MarkdownDescription: "Target database name",
-							Required:            true,
+							Optional:            true,
+							Computed:            true,
+							Default:             stringdefault.StaticString(defaultDatabase),
 						},
 					},
 				},
 			},
-			"privilege": schema.SetNestedAttribute{
-				MarkdownDescription: "MongoDB role privileges",
+			"privileges": schema.SetNestedAttribute{
+				MarkdownDescription: "Set of MongoDB role privileges",
 				Optional:            true,
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
@@ -109,18 +101,18 @@ func (r *RoleResource) Configure(_ context.Context, req resource.ConfigureReques
 		return
 	}
 
-	client, ok := req.ProviderData.(*mongodb.Client)
+	p, ok := req.ProviderData.(*MongodbProvider)
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Resource Configure Type",
-			fmt.Sprintf("Expected *mongodb.client, got: %T. "+
+			fmt.Sprintf("Expected *MongodbProvider, got: %T. "+
 				"Please report this issue to the provider developers.", req.ProviderData),
 		)
 
 		return
 	}
 
-	r.client = client
+	r.client = p.client
 }
 
 func (r *RoleResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -128,7 +120,7 @@ func (r *RoleResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 
-	var plan *RoleResourceModel
+	var plan RoleResourceModel
 
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
@@ -173,7 +165,7 @@ func (r *RoleResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		return
 	}
 
-	var plan *RoleResourceModel
+	var plan RoleResourceModel
 
 	resp.Diagnostics.Append(req.State.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
@@ -224,7 +216,7 @@ func (r *RoleResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		return
 	}
 
-	var plan *RoleResourceModel
+	var plan RoleResourceModel
 
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
@@ -269,16 +261,16 @@ func (r *RoleResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 		return
 	}
 
-	var data *RoleResourceModel
-	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+	var plan RoleResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &plan)...)
 
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
 	err := r.client.DeleteRole(ctx, &mongodb.DeleteRoleOptions{
-		Name:     data.Name.ValueString(),
-		Database: data.Database.ValueString(),
+		Name:     plan.Name.ValueString(),
+		Database: plan.Database.ValueString(),
 	})
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -300,22 +292,31 @@ func (r *RoleResource) ImportState(
 		return
 	}
 
-	idParts := strings.Split(req.ID, ",")
+	idParts := strings.Split(req.ID, ".")
 
-	if len(idParts) != 2 || idParts[0] == "" || idParts[1] == "" {
+	var name, database string
+
+	switch {
+	case len(idParts) == 2:
+		database = idParts[0]
+		name = idParts[1]
+	case len(idParts) == 1:
+		name = idParts[0]
+		database = defaultDatabase
+	default:
 		resp.Diagnostics.AddError(
 			"Unexpected Import Identifier",
-			fmt.Sprintf("Expected import identifier with format: name,db. Got: %q", req.ID),
+			fmt.Sprintf("Expected import identifier with format: '[<db>.]<role>'. Got: %q", req.ID),
 		)
 
 		return
 	}
 
-	var plan *RoleResourceModel
+	plan := RoleResourceModel{}
 
 	role, err := r.client.GetRole(ctx, &mongodb.GetRoleOptions{
-		Name:     idParts[0],
-		Database: idParts[1],
+		Name:     name,
+		Database: database,
 	})
 	if err != nil {
 		resp.Diagnostics.AddError(

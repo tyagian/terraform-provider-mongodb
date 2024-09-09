@@ -3,12 +3,12 @@
 page_title: "mongodb_user Resource - mongodb"
 subcategory: ""
 description: |-
-  User resource
+  MongoDB User resource
 ---
 
 # mongodb_user (Resource)
 
-User resource
+MongoDB User resource
 
 
 
@@ -18,22 +18,20 @@ User resource
 ### Required
 
 - `password` (String, Sensitive) Password
-- `role` (Attributes Set) MongoDB role (see [below for nested schema](#nestedatt--role))
+- `roles` (Attributes Set) Set of MongoDB roles (see [below for nested schema](#nestedatt--roles))
 - `username` (String) Username
 
 ### Optional
 
 - `database` (String) Auth database name
 
-### Read-Only
-
-- `id` (String) The ID of this resource.
-- `last_updated` (String)
-
-<a id="nestedatt--role"></a>
-### Nested Schema for `role`
+<a id="nestedatt--roles"></a>
+### Nested Schema for `roles`
 
 Required:
 
-- `db` (String) Target database name
 - `role` (String) Role name
+
+Optional:
+
+- `db` (String) Target database name

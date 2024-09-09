@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
@@ -15,6 +16,11 @@ const (
 )
 
 func (c *Client) UpsertUser(ctx context.Context, user *User) (*User, error) {
+	tflog.Debug(ctx, "UpsertUser", map[string]interface{}{
+		"username": user.Username,
+		"db":       user.Database,
+	})
+
 	var cmd string
 
 	getUserOptions := &GetUserOptions{
@@ -32,10 +38,10 @@ func (c *Client) UpsertUser(ctx context.Context, user *User) (*User, error) {
 		return nil, err
 	}
 
-	command := bson.M{
-		cmd:     user.Username,
-		"pwd":   user.Password,
-		"roles": user.Roles,
+	command := bson.D{
+		{Key: cmd, Value: user.Username},
+		{Key: "pwd", Value: user.Password},
+		{Key: "roles", Value: user.Roles.toBson()},
 	}
 
 	response := c.mongo.Database(user.Database).RunCommand(ctx, command)
@@ -67,18 +73,27 @@ type GetUserOptions struct {
 	Database string
 }
 
+type getUsersResult struct {
+	Ok    int    `bson:"ok"`
+	Users []User `bson:"users"`
+}
+
 func (c *Client) GetUser(ctx context.Context, options *GetUserOptions) (*User, error) {
-	command := bson.M{getUserCmd: options.Username}
+	tflog.Debug(ctx, "GetUser", map[string]interface{}{
+		"username": options.Username,
+		"db":       options.Database,
+	})
+
+	command := bson.D{
+		{Key: getUserCmd, Value: options.Username},
+	}
 
 	response := c.mongo.Database(options.Database).RunCommand(ctx, command)
 	if err := response.Err(); err != nil {
 		return nil, err
 	}
 
-	var result = struct {
-		Result
-		Users []User `bson:"users"`
-	}{}
+	var result getUsersResult
 
 	err := response.Decode(&result)
 	if err != nil {
@@ -107,7 +122,14 @@ type DeleteUserOptions struct {
 }
 
 func (c *Client) DeleteUser(ctx context.Context, options *DeleteUserOptions) error {
-	command := bson.M{deleteUserCmd: options.Username}
+	tflog.Debug(ctx, "DeleteUser", map[string]interface{}{
+		"username": options.Username,
+		"db":       options.Database,
+	})
+
+	command := bson.D{
+		{Key: deleteUserCmd, Value: options.Username},
+	}
 
 	response := c.mongo.Database(options.Database).RunCommand(ctx, command)
 	if err := response.Err(); err != nil {

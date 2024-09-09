@@ -16,6 +16,10 @@ var (
 	_ provider.Provider = &MongodbProvider{}
 )
 
+const (
+	defaultDatabase = "admin"
+)
+
 type MongodbProvider struct {
 	Version string
 	client  *mongodb.Client
@@ -49,7 +53,7 @@ func (p *MongodbProvider) Schema(_ context.Context, _ provider.SchemaRequest, re
 		MarkdownDescription: "MongoDB user and role management",
 
 		Attributes: map[string]schema.Attribute{
-			"host": schema.ListAttribute{
+			"hosts": schema.ListAttribute{
 				MarkdownDescription: "MongoDB hosts",
 				ElementType:         types.StringType,
 				Required:            true,
@@ -89,17 +93,20 @@ func (p *MongodbProvider) Configure(
 	req provider.ConfigureRequest,
 	resp *provider.ConfigureResponse,
 ) {
-	var data *MongodbProviderModel
+	var data MongodbProviderModel
 
 	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	if data.AuthSource.IsNull() {
-		data.AuthSource = types.StringValue("admin")
+		data.AuthSource = types.StringValue(defaultDatabase)
 	}
 
 	var err error
-
 	var hosts []string
+
 	diag := data.Hosts.ElementsAs(ctx, &hosts, false)
 	resp.Diagnostics.Append(diag...)
 

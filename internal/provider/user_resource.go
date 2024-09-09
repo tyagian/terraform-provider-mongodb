@@ -27,9 +27,6 @@ type UserResource struct {
 }
 
 type UserResourceModel struct {
-	ID          types.String `tfsdk:"id"`
-	LastUpdated types.String `tfsdk:"last_updated"`
-
 	Username types.String `tfsdk:"username"`
 	Password types.String `tfsdk:"password"`
 	Database types.String `tfsdk:"database"`
@@ -42,16 +39,9 @@ func (r *UserResource) Metadata(_ context.Context, req resource.MetadataRequest,
 
 func (r *UserResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "User resource",
+		MarkdownDescription: "MongoDB User resource",
 
 		Attributes: map[string]schema.Attribute{
-			"id": schema.StringAttribute{
-				Computed: true,
-			},
-			"last_updated": schema.StringAttribute{
-				Computed: true,
-			},
-
 			"username": schema.StringAttribute{
 				MarkdownDescription: "Username",
 				Required:            true,
@@ -65,10 +55,10 @@ func (r *UserResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 				MarkdownDescription: "Auth database name",
 				Optional:            true,
 				Computed:            true,
-				Default:             stringdefault.StaticString("admin"),
+				Default:             stringdefault.StaticString(defaultDatabase),
 			},
-			"role": schema.SetNestedAttribute{
-				MarkdownDescription: "MongoDB role",
+			"roles": schema.SetNestedAttribute{
+				MarkdownDescription: "Set of MongoDB roles",
 				Required:            true,
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
@@ -78,7 +68,9 @@ func (r *UserResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 						},
 						"db": schema.StringAttribute{
 							MarkdownDescription: "Target database name",
-							Required:            true,
+							Optional:            true,
+							Computed:            true,
+							Default:             stringdefault.StaticString(defaultDatabase),
 						},
 					},
 				},
@@ -92,18 +84,18 @@ func (r *UserResource) Configure(_ context.Context, req resource.ConfigureReques
 		return
 	}
 
-	client, ok := req.ProviderData.(*mongodb.Client)
+	p, ok := req.ProviderData.(*MongodbProvider)
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Resource Configure Type",
-			fmt.Sprintf("Expected *mongodb.client, got: %T. "+
+			fmt.Sprintf("Expected *MongodbProvider, got: %T. "+
 				"Please report this issue to the provider developers.", req.ProviderData),
 		)
 
 		return
 	}
 
-	r.client = client
+	r.client = p.client
 }
 
 func (r *UserResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -111,7 +103,7 @@ func (r *UserResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 
-	var plan *UserResourceModel
+	var plan UserResourceModel
 
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
@@ -148,7 +140,7 @@ func (r *UserResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		return
 	}
 
-	var plan *UserResourceModel
+	var plan UserResourceModel
 
 	resp.Diagnostics.Append(req.State.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
@@ -227,7 +219,7 @@ func (r *UserResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 		return
 	}
 
-	var plan *UserResourceModel
+	var plan UserResourceModel
 
 	resp.Diagnostics.Append(req.State.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
@@ -258,22 +250,31 @@ func (r *UserResource) ImportState(
 		return
 	}
 
-	idParts := strings.Split(req.ID, ",")
+	idParts := strings.Split(req.ID, ".")
 
-	if len(idParts) != 2 || idParts[0] == "" || idParts[1] == "" {
+	var username, database string
+
+	switch {
+	case len(idParts) == 2:
+		database = idParts[0]
+		username = idParts[1]
+	case len(idParts) == 1:
+		username = idParts[0]
+		database = defaultDatabase
+	default:
 		resp.Diagnostics.AddError(
 			"Unexpected Import Identifier",
-			fmt.Sprintf("Expected import identifier with format: username,db. Got: %q", req.ID),
+			fmt.Sprintf("Expected import identifier with format: '[<db>.]<username>'. Got: %q", req.ID),
 		)
 
 		return
 	}
 
-	var plan *UserResourceModel
+	plan := &UserResourceModel{}
 
 	user, err := r.client.GetUser(ctx, &mongodb.GetUserOptions{
-		Username: idParts[0],
-		Database: idParts[1],
+		Username: username,
+		Database: database,
 	})
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -283,6 +284,10 @@ func (r *UserResource) ImportState(
 
 		return
 	}
+
+	tflog.Debug(ctx, "TEST", map[string]interface{}{
+		"user": user,
+	})
 
 	plan.Username = types.StringValue(user.Username)
 	plan.Database = types.StringValue(user.Database)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
@@ -15,6 +16,11 @@ const (
 )
 
 func (c *Client) UpsertRole(ctx context.Context, role *Role) (*Role, error) {
+	tflog.Debug(ctx, "UpsertRole", map[string]interface{}{
+		"name":     role.Name,
+		"database": role.Database,
+	})
+
 	var cmd string
 
 	_, err := c.GetRole(ctx, &GetRoleOptions{
@@ -31,10 +37,10 @@ func (c *Client) UpsertRole(ctx context.Context, role *Role) (*Role, error) {
 		return nil, err
 	}
 
-	command := bson.M{
-		cmd:          role.Name,
-		"privileges": role.Privileges,
-		"roles":      role.Roles,
+	command := bson.D{
+		{Key: cmd, Value: role.Name},
+		{Key: "privileges", Value: role.Privileges.toBson()},
+		{Key: "roles", Value: role.Roles.toBson()},
 	}
 
 	response := c.mongo.Database(role.Database).RunCommand(ctx, command)
@@ -69,10 +75,20 @@ type GetRoleOptions struct {
 	Database string
 }
 
+type getRoleResult struct {
+	Ok    int    `bson:"ok"`
+	Roles []Role `bson:"roles"`
+}
+
 func (c *Client) GetRole(ctx context.Context, options *GetRoleOptions) (*Role, error) {
-	command := bson.M{
-		getRoleCmd:       options.Name,
-		"showPrivileges": true,
+	tflog.Debug(ctx, "GetRole", map[string]interface{}{
+		"name":     options.Name,
+		"database": options.Database,
+	})
+
+	command := bson.D{
+		{Key: getRoleCmd, Value: options.Name},
+		{Key: "showPrivileges", Value: true},
 	}
 
 	response := c.mongo.Database(options.Database).RunCommand(ctx, command)
@@ -80,10 +96,7 @@ func (c *Client) GetRole(ctx context.Context, options *GetRoleOptions) (*Role, e
 		return nil, err
 	}
 
-	result := struct {
-		Result
-		Roles []Role `bson:"roles"`
-	}{}
+	var result getRoleResult
 
 	err := response.Decode(&result)
 	if err != nil {
@@ -112,7 +125,14 @@ type DeleteRoleOptions struct {
 }
 
 func (c *Client) DeleteRole(ctx context.Context, options *DeleteRoleOptions) error {
-	command := bson.M{deleteRoleCmd: options.Name}
+	tflog.Debug(ctx, "DeleteRole", map[string]interface{}{
+		"name":     options.Name,
+		"database": options.Database,
+	})
+
+	command := bson.D{
+		{Key: deleteRoleCmd, Value: options.Name},
+	}
 
 	response := c.mongo.Database(options.Database).RunCommand(ctx, command)
 	if err := response.Err(); err != nil {
