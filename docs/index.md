@@ -24,6 +24,7 @@ MongoDB user and role management
 ### Optional
 
 - `auth_source` (String) AuthSource database
+- `certificate` (String) Certificate PEM string
 - `insecure_skip_verify` (Boolean) Insecure TLS
 - `replica_set` (String) Replica set name
 - `tls` (Boolean) Enable TLS

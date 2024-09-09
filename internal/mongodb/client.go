@@ -3,6 +3,8 @@ package mongodb
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
+	"errors"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	mongooptions "go.mongodb.org/mongo-driver/mongo/options"
@@ -16,6 +18,7 @@ type ClientOptions struct {
 	ReplicaSet         string
 	TLS                bool
 	InsecureSkipVerify bool
+	Certificate        string
 }
 
 type Client struct {
@@ -37,6 +40,17 @@ func New(ctx context.Context, options *ClientOptions) (*Client, error) {
 	if options.TLS {
 		tlsConfig := &tls.Config{
 			InsecureSkipVerify: options.InsecureSkipVerify,
+		}
+
+		if options.Certificate != "" {
+			certPool := x509.NewCertPool()
+
+			ok := certPool.AppendCertsFromPEM([]byte(options.Certificate))
+			if !ok {
+				return nil, errors.New("failed to parse certificate")
+			}
+
+			tlsConfig.RootCAs = certPool
 		}
 
 		opt.SetTLSConfig(tlsConfig)

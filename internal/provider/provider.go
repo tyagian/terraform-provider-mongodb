@@ -32,6 +32,7 @@ type MongodbProviderModel struct {
 	AuthSource         types.String `tfsdk:"auth_source"`
 	ReplicaSet         types.String `tfsdk:"replica_set"`
 	TLS                types.Bool   `tfsdk:"tls"`
+	Certificate        types.String `tfsdk:"certificate"`
 	InsecureSkipVerify types.Bool   `tfsdk:"insecure_skip_verify"`
 }
 
@@ -80,6 +81,10 @@ func (p *MongodbProvider) Schema(_ context.Context, _ provider.SchemaRequest, re
 				MarkdownDescription: "Enable TLS",
 				Optional:            true,
 			},
+			"certificate": schema.StringAttribute{
+				MarkdownDescription: "Certificate PEM string",
+				Optional:            true,
+			},
 			"insecure_skip_verify": schema.BoolAttribute{
 				MarkdownDescription: "Insecure TLS",
 				Optional:            true,
@@ -115,10 +120,14 @@ func (p *MongodbProvider) Configure(
 	}
 
 	p.client, err = mongodb.New(ctx, &mongodb.ClientOptions{
-		Hosts:      hosts,
-		AuthSource: data.AuthSource.ValueString(),
-		Username:   data.Username.ValueString(),
-		Password:   data.Password.ValueString(),
+		Hosts:              hosts,
+		Username:           data.Username.ValueString(),
+		Password:           data.Password.ValueString(),
+		AuthSource:         data.AuthSource.ValueString(),
+		ReplicaSet:         data.ReplicaSet.ValueString(),
+		TLS:                data.TLS.ValueBool(),
+		Certificate:        data.Certificate.ValueString(),
+		InsecureSkipVerify: data.InsecureSkipVerify.ValueBool(),
 	})
 	if err != nil {
 		resp.Diagnostics.AddError(
