@@ -29,8 +29,15 @@ type Privilege struct {
 }
 
 var privilegeAttributeTypes = map[string]attr.Type{
-	"resource": types.StringType,
-	"actions":  types.SetType{},
+	"resource": types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"db":         types.StringType,
+			"collection": types.StringType,
+		},
+	},
+	"actions": types.SetType{
+		ElemType: types.StringType,
+	},
 }
 
 type Privileges []Privilege
