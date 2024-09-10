@@ -40,6 +40,7 @@ func (c *Client) UpsertRole(ctx context.Context, role *Role) (*Role, error) {
 	command := bson.D{
 		{Key: cmd, Value: role.Name},
 		{Key: "privileges", Value: role.Privileges.toBson()},
+		// Roles field is required, but empty array is fine
 		{Key: "roles", Value: role.Roles.toBson()},
 	}
 

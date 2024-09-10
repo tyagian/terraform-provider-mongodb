@@ -40,6 +40,25 @@ type RoleResourceModel struct {
 	Privileges types.Set    `tfsdk:"privileges"`
 }
 
+func (r *RoleResourceModel) UpdateState(ctx context.Context, role *mongodb.Role) diag.Diagnostics {
+	diags := diag.Diagnostics{}
+
+	r.Name = types.StringValue(role.Name)
+	r.Database = types.StringValue(role.Database)
+
+	// Parse roles
+	roles, d := role.Roles.ToTerraformSet(ctx)
+	diags.Append(d...)
+	r.Roles = *roles
+
+	// Parse privileges
+	privileges, d := role.Privileges.ToTerraformSet(ctx)
+	diags.Append(d...)
+	r.Privileges = *privileges
+
+	return diags
+}
+
 func (r *RoleResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_role"
 }
@@ -50,23 +69,24 @@ func (r *RoleResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
-				MarkdownDescription: "Name of the role",
+				MarkdownDescription: "The name of the new role",
 				Required:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"database": schema.StringAttribute{
-				MarkdownDescription: "Role database name",
-				Optional:            true,
-				Computed:            true,
-				Default:             stringdefault.StaticString(defaultDatabase),
+				MarkdownDescription: fmt.Sprintf("Target database name. "+
+					"%q is used by default", defaultDatabase),
+				Optional: true,
+				Computed: true,
+				Default:  stringdefault.StaticString(defaultDatabase),
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"roles": schema.SetNestedAttribute{
-				MarkdownDescription: "Set of MongoDB inherited roles",
+				MarkdownDescription: "Set of roles from which this role inherits privileges",
 				Optional:            true,
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
@@ -75,21 +95,23 @@ func (r *RoleResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 							Required:            true,
 						},
 						"db": schema.StringAttribute{
-							MarkdownDescription: "Target database name",
-							Optional:            true,
-							Computed:            true,
-							Default:             stringdefault.StaticString(defaultDatabase),
+							MarkdownDescription: fmt.Sprintf("Target database name. "+
+								"%q is used by default", defaultDatabase),
+							Optional: true,
+							Computed: true,
+							Default:  stringdefault.StaticString(defaultDatabase),
 						},
 					},
 				},
 			},
 			"privileges": schema.SetNestedAttribute{
-				MarkdownDescription: "Set of MongoDB role privileges",
+				MarkdownDescription: "Set of the privileges to grant the role",
 				Optional:            true,
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"resource": schema.ObjectAttribute{
-							MarkdownDescription: "Resource configuration",
+							MarkdownDescription: "A document that specifies the resources " +
+								"upon which the privilege actions apply",
 							AttributeTypes: map[string]attr.Type{
 								"db":         types.StringType,
 								"collection": types.StringType,
@@ -97,7 +119,7 @@ func (r *RoleResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 							Required: true,
 						},
 						"actions": schema.SetAttribute{
-							MarkdownDescription: "List of actions",
+							MarkdownDescription: "An array of actions permitted on the resource",
 							ElementType:         types.StringType,
 							Required:            true,
 						},
@@ -139,21 +161,23 @@ func (r *RoleResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 
+	// Parse roles
 	var roles []mongodb.ShortRole
+
 	resp.Diagnostics.Append(plan.Roles.ElementsAs(ctx, &roles, false)...)
-
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
+	// Parse privileges
 	var privileges []mongodb.Privilege
-	resp.Diagnostics.Append(plan.Privileges.ElementsAs(ctx, &privileges, false)...)
 
+	resp.Diagnostics.Append(plan.Privileges.ElementsAs(ctx, &privileges, false)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	_, err := r.client.UpsertRole(ctx, &mongodb.Role{
+	role, err := r.client.UpsertRole(ctx, &mongodb.Role{
 		Name:       plan.Name.ValueString(),
 		Database:   plan.Database.ValueString(),
 		Privileges: privileges,
@@ -165,6 +189,11 @@ func (r *RoleResource) Create(ctx context.Context, req resource.CreateRequest, r
 			err.Error(),
 		)
 
+		return
+	}
+
+	resp.Diagnostics.Append(plan.UpdateState(ctx, role)...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
@@ -197,29 +226,11 @@ func (r *RoleResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		return
 	}
 
-	plan.Name = types.StringValue(role.Name)
-	plan.Database = types.StringValue(role.Database)
-
-	// Parse roles
-	roles, d := role.Roles.ToTerraformSet(ctx)
-	resp.Diagnostics.Append(d...)
+	resp.Diagnostics.Append(plan.UpdateState(ctx, role)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	plan.Roles = *roles
-
-	// Parse privileges
-	privileges, d := role.Privileges.ToTerraformSet(ctx)
-	resp.Diagnostics.Append(d...)
-
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	plan.Privileges = *privileges
-
-	// Update state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -235,21 +246,23 @@ func (r *RoleResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		return
 	}
 
+	// Parse roles
 	var roles []mongodb.ShortRole
+
 	resp.Diagnostics.Append(plan.Roles.ElementsAs(ctx, &roles, false)...)
-
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
+	// Parse privileges
 	var privileges []mongodb.Privilege
-	resp.Diagnostics.Append(plan.Privileges.ElementsAs(ctx, &privileges, false)...)
 
+	resp.Diagnostics.Append(plan.Privileges.ElementsAs(ctx, &privileges, false)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	_, err := r.client.UpsertRole(ctx, &mongodb.Role{
+	role, err := r.client.UpsertRole(ctx, &mongodb.Role{
 		Name:       plan.Name.ValueString(),
 		Database:   plan.Database.ValueString(),
 		Privileges: privileges,
@@ -261,6 +274,11 @@ func (r *RoleResource) Update(ctx context.Context, req resource.UpdateRequest, r
 			err.Error(),
 		)
 
+		return
+	}
+
+	resp.Diagnostics.Append(plan.UpdateState(ctx, role)...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
@@ -339,32 +357,15 @@ func (r *RoleResource) ImportState(
 		return
 	}
 
-	plan.Name = types.StringValue(role.Name)
-	plan.Database = types.StringValue(role.Database)
-
-	// Parse roles
-	roles, d := role.Roles.ToTerraformSet(ctx)
-	resp.Diagnostics.Append(d...)
+	resp.Diagnostics.Append(plan.UpdateState(ctx, role)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	plan.Roles = *roles
-
-	// Parse privileges
-	privileges, d := role.Privileges.ToTerraformSet(ctx)
-	resp.Diagnostics.Append(d...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	plan.Privileges = *privileges
-
-	// Append state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
-func (r *RoleResource) ConfigValidators(ctx context.Context) []resource.ConfigValidator {
+func (r *RoleResource) ConfigValidators(_ context.Context) []resource.ConfigValidator {
 	return []resource.ConfigValidator{
 		resourcevalidator.AtLeastOneOf(
 			path.MatchRoot("roles"),

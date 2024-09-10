@@ -101,6 +101,7 @@ func (p *MongodbProvider) Configure(
 	var data MongodbProviderModel
 
 	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}

@@ -17,21 +17,21 @@ MongoDB Role resource
 
 ### Required
 
-- `name` (String) Name of the role
+- `name` (String) The name of the new role
 
 ### Optional
 
-- `database` (String) Role database name
-- `privileges` (Attributes Set) Set of MongoDB role privileges (see [below for nested schema](#nestedatt--privileges))
-- `roles` (Attributes Set) Set of MongoDB inherited roles (see [below for nested schema](#nestedatt--roles))
+- `database` (String) Target database name. "admin" is used by default
+- `privileges` (Attributes Set) Set of the privileges to grant the role (see [below for nested schema](#nestedatt--privileges))
+- `roles` (Attributes Set) Set of roles from which this role inherits privileges (see [below for nested schema](#nestedatt--roles))
 
 <a id="nestedatt--privileges"></a>
 ### Nested Schema for `privileges`
 
 Required:
 
-- `actions` (Set of String) List of actions
-- `resource` (Object) Resource configuration (see [below for nested schema](#nestedatt--privileges--resource))
+- `actions` (Set of String) An array of actions permitted on the resource
+- `resource` (Object) A document that specifies the resources upon which the privilege actions apply (see [below for nested schema](#nestedatt--privileges--resource))
 
 <a id="nestedatt--privileges--resource"></a>
 ### Nested Schema for `privileges.resource`
@@ -52,4 +52,4 @@ Required:
 
 Optional:
 
-- `db` (String) Target database name
+- `db` (String) Target database name. "admin" is used by default

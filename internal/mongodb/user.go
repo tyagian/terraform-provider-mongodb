@@ -40,9 +40,16 @@ func (c *Client) UpsertUser(ctx context.Context, user *User) (*User, error) {
 
 	command := bson.D{
 		{Key: cmd, Value: user.Username},
-		{Key: "pwd", Value: user.Password},
+		// Roles field is required, but empty array is fine
 		{Key: "roles", Value: user.Roles.toBson()},
-		{Key: "mechanisms", Value: user.Mechanisms},
+	}
+
+	if user.Password != "" {
+		command = append(command, bson.E{Key: "pwd", Value: user.Password})
+	}
+
+	if len(user.Mechanisms) > 0 {
+		command = append(command, bson.E{Key: "mechanisms", Value: user.Mechanisms})
 	}
 
 	response := c.mongo.Database(user.Database).RunCommand(ctx, command)

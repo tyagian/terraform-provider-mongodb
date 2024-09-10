@@ -17,14 +17,14 @@ MongoDB User resource
 
 ### Required
 
-- `password` (String, Sensitive) Password
-- `roles` (Attributes Set) Set of MongoDB roles (see [below for nested schema](#nestedatt--roles))
-- `username` (String) Username
+- `username` (String) The name of the new user
 
 ### Optional
 
-- `database` (String) Auth database name
+- `database` (String) Auth database name (auth source). "admin" is used by default
 - `mechanisms` (Set of String) Specify the specific SCRAM mechanism or mechanisms for creating SCRAM user credentials.
+- `password` (String, Sensitive) The user's password. Must be empty for "$external" database
+- `roles` (Attributes Set) The roles granted to the user (see [below for nested schema](#nestedatt--roles))
 
 <a id="nestedatt--roles"></a>
 ### Nested Schema for `roles`
@@ -35,4 +35,4 @@ Required:
 
 Optional:
 
-- `db` (String) Target database name
+- `db` (String) Target database name. "admin" is used by default

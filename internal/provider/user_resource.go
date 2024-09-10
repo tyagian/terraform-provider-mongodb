@@ -37,6 +37,42 @@ type UserResourceModel struct {
 	Mechanisms types.Set    `tfsdk:"mechanisms"`
 }
 
+func (u *UserResourceModel) GetMechanisms(ctx context.Context, ptr *[]string) diag.Diagnostics {
+	diags := diag.Diagnostics{}
+
+	mechanismsStrings := make([]types.String, 0, len(u.Mechanisms.Elements()))
+	diags.Append(u.Mechanisms.ElementsAs(ctx, &mechanismsStrings, false)...)
+
+	mechanisms := make([]string, 0, len(mechanismsStrings))
+
+	for _, mechanism := range mechanismsStrings {
+		mechanisms = append(mechanisms, mechanism.ValueString())
+	}
+
+	*ptr = mechanisms
+
+	return diags
+}
+
+func (u *UserResourceModel) UpdateState(ctx context.Context, user *mongodb.User) diag.Diagnostics {
+	diags := diag.Diagnostics{}
+
+	u.Username = types.StringValue(user.Username)
+	u.Database = types.StringValue(user.Database)
+
+	roles, d := user.Roles.ToTerraformSet(ctx)
+	diags.Append(d...)
+
+	u.Roles = *roles
+
+	// DocumentDB does not return mechanisms, keep the value same as in plan.
+	// mechanisms, d := types.SetValueFrom(ctx, types.StringType, user.Mechanisms)
+	// diags.Append(d...)
+	// userModel.Mechanisms = mechanisms
+
+	return diags
+}
+
 func (r *UserResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_user"
 }
@@ -47,29 +83,31 @@ func (r *UserResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 
 		Attributes: map[string]schema.Attribute{
 			"username": schema.StringAttribute{
-				MarkdownDescription: "Username",
+				MarkdownDescription: "The name of the new user",
 				Required:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"password": schema.StringAttribute{
-				MarkdownDescription: "Password",
-				Required:            true,
-				Sensitive:           true,
+				MarkdownDescription: fmt.Sprintf("The user's password. "+
+					"Must be empty for %q database", externalDatabase),
+				Optional:  true,
+				Sensitive: true,
 			},
 			"database": schema.StringAttribute{
-				MarkdownDescription: "Auth database name",
-				Optional:            true,
-				Computed:            true,
-				Default:             stringdefault.StaticString(defaultDatabase),
+				MarkdownDescription: fmt.Sprintf("Auth database name (auth source). "+
+					"%q is used by default", defaultDatabase),
+				Optional: true,
+				Computed: true,
+				Default:  stringdefault.StaticString(defaultDatabase),
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"roles": schema.SetNestedAttribute{
-				MarkdownDescription: "Set of MongoDB roles",
-				Required:            true,
+				MarkdownDescription: "The roles granted to the user",
+				Optional:            true,
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"role": schema.StringAttribute{
@@ -77,10 +115,11 @@ func (r *UserResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 							Required:            true,
 						},
 						"db": schema.StringAttribute{
-							MarkdownDescription: "Target database name",
-							Optional:            true,
-							Computed:            true,
-							Default:             stringdefault.StaticString(defaultDatabase),
+							MarkdownDescription: fmt.Sprintf("Target database name. "+
+								"%q is used by default", defaultDatabase),
+							Optional: true,
+							Computed: true,
+							Default:  stringdefault.StaticString(defaultDatabase),
 						},
 					},
 				},
@@ -126,19 +165,25 @@ func (r *UserResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 
+	// Parse roles
 	var roles []mongodb.ShortRole
+
 	resp.Diagnostics.Append(plan.Roles.ElementsAs(ctx, &roles, false)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
+	// Parse mechanisms
 	var mechanisms []string
-	resp.Diagnostics.Append(plan.Mechanisms.ElementsAs(ctx, &mechanisms, false)...)
-	if resp.Diagnostics.HasError() {
-		return
+
+	if !plan.Mechanisms.IsUnknown() {
+		resp.Diagnostics.Append(plan.GetMechanisms(ctx, &mechanisms)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
 	}
 
-	_, err := r.client.UpsertUser(ctx, &mongodb.User{
+	user, err := r.client.UpsertUser(ctx, &mongodb.User{
 		Username:   plan.Username.ValueString(),
 		Password:   plan.Password.ValueString(),
 		Database:   plan.Database.ValueString(),
@@ -151,6 +196,11 @@ func (r *UserResource) Create(ctx context.Context, req resource.CreateRequest, r
 			err.Error(),
 		)
 
+		return
+	}
+
+	resp.Diagnostics.Append(plan.UpdateState(ctx, user)...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
@@ -183,30 +233,11 @@ func (r *UserResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		return
 	}
 
-	plan.Username = types.StringValue(user.Username)
-	plan.Database = types.StringValue(user.Database)
-
-	// Parse roles
-	roles, d := user.Roles.ToTerraformSet(ctx)
-
-	resp.Diagnostics.Append(d...)
+	resp.Diagnostics.Append(plan.UpdateState(ctx, user)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	plan.Roles = *roles
-
-	// Parse mechanisms
-	mechanisms, d := types.SetValueFrom(ctx, types.StringType, user.Mechanisms)
-
-	resp.Diagnostics.Append(d...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	plan.Mechanisms = mechanisms
-
-	// Append state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -222,19 +253,25 @@ func (r *UserResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		return
 	}
 
+	// Parse roles
 	var roles []mongodb.ShortRole
+
 	resp.Diagnostics.Append(plan.Roles.ElementsAs(ctx, &roles, false)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
+	// Parse mechanisms
 	var mechanisms []string
-	resp.Diagnostics.Append(plan.Mechanisms.ElementsAs(ctx, &mechanisms, false)...)
-	if resp.Diagnostics.HasError() {
-		return
+
+	if !plan.Mechanisms.IsUnknown() {
+		resp.Diagnostics.Append(plan.GetMechanisms(ctx, &mechanisms)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
 	}
 
-	_, err := r.client.UpsertUser(ctx, &mongodb.User{
+	user, err := r.client.UpsertUser(ctx, &mongodb.User{
 		Username:   plan.Username.ValueString(),
 		Password:   plan.Password.ValueString(),
 		Database:   plan.Database.ValueString(),
@@ -247,6 +284,11 @@ func (r *UserResource) Update(ctx context.Context, req resource.UpdateRequest, r
 			err.Error(),
 		)
 
+		return
+	}
+
+	resp.Diagnostics.Append(plan.UpdateState(ctx, user)...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
@@ -325,31 +367,18 @@ func (r *UserResource) ImportState(
 		return
 	}
 
-	plan.Username = types.StringValue(user.Username)
-	plan.Database = types.StringValue(user.Database)
-
-	// Parse roles
-	roles, d := user.Roles.ToTerraformSet(ctx)
-
-	resp.Diagnostics.Append(d...)
+	resp.Diagnostics.Append(plan.UpdateState(ctx, user)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	plan.Roles = *roles
-
-	// Parse mechanisms
-	mechanisms, d := types.SetValueFrom(ctx, types.StringType, user.Mechanisms)
-
-	resp.Diagnostics.Append(d...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	plan.Mechanisms = mechanisms
-
-	// Append state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+}
+
+func (r *UserResource) ConfigValidators(_ context.Context) []resource.ConfigValidator {
+	return []resource.ConfigValidator{
+		userPasswordValidator{},
+	}
 }
 
 func (r *UserResource) checkClient(diag diag.Diagnostics) bool {
