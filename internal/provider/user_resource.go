@@ -17,6 +17,10 @@ import (
 	"github.com/megum1n/terraform-provider-mongodb/internal/mongodb"
 )
 
+const (
+	externalDatabase = "$external"
+)
+
 var _ resource.Resource = &UserResource{}
 var _ resource.ResourceWithConfigure = &UserResource{}
 var _ resource.ResourceWithImportState = &UserResource{}
@@ -373,12 +377,6 @@ func (r *UserResource) ImportState(
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
-}
-
-func (r *UserResource) ConfigValidators(_ context.Context) []resource.ConfigValidator {
-	return []resource.ConfigValidator{
-		userPasswordValidator{},
-	}
 }
 
 func (r *UserResource) checkClient(diag diag.Diagnostics) bool {
