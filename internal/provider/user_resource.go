@@ -294,10 +294,6 @@ func (r *UserResource) ImportState(
 		return
 	}
 
-	tflog.Debug(ctx, "TEST", map[string]interface{}{
-		"user": user,
-	})
-
 	plan.Username = types.StringValue(user.Username)
 	plan.Database = types.StringValue(user.Database)
 

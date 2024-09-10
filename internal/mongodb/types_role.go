@@ -65,7 +65,7 @@ func (p *Privileges) toBson() bson.A {
 
 type ShortRole struct {
 	Role string `bson:"role" tfsdk:"role"`
-	DB   string `bson:"db" tfsdk:"db"`
+	DB   string `bson:"db"   tfsdk:"db"`
 }
 
 type ShortRoles []ShortRole
