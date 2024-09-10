@@ -22,20 +22,8 @@ MongoDB Role resource
 ### Optional
 
 - `database` (String) Role database name
-- `inherited_roles` (Attributes Set) Set of MongoDB inherited roles (see [below for nested schema](#nestedatt--inherited_roles))
 - `privileges` (Attributes Set) Set of MongoDB role privileges (see [below for nested schema](#nestedatt--privileges))
-
-<a id="nestedatt--inherited_roles"></a>
-### Nested Schema for `inherited_roles`
-
-Required:
-
-- `role` (String) Role name
-
-Optional:
-
-- `db` (String) Target database name
-
+- `roles` (Attributes Set) Set of MongoDB inherited roles (see [below for nested schema](#nestedatt--roles))
 
 <a id="nestedatt--privileges"></a>
 ### Nested Schema for `privileges`
@@ -52,3 +40,16 @@ Optional:
 
 - `collection` (String)
 - `db` (String)
+
+
+
+<a id="nestedatt--roles"></a>
+### Nested Schema for `roles`
+
+Required:
+
+- `role` (String) Role name
+
+Optional:
+
+- `db` (String) Target database name

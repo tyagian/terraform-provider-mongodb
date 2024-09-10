@@ -10,34 +10,14 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-type User struct {
-	Username string `bson:"user"`
-	Password string
-
-	Database string     `bson:"db"`
-	Roles    ShortRoles `bson:"roles"`
-}
-
-type RoleResource struct {
+type Resource struct {
 	DB         string `bson:"db"`
 	Collection string `bson:"collection"`
 }
 
 type Privilege struct {
-	Resource RoleResource `bson:"resource"`
-	Actions  []string     `bson:"actions"`
-}
-
-var privilegeAttributeTypes = map[string]attr.Type{
-	"resource": types.ObjectType{
-		AttrTypes: map[string]attr.Type{
-			"db":         types.StringType,
-			"collection": types.StringType,
-		},
-	},
-	"actions": types.SetType{
-		ElemType: types.StringType,
-	},
+	Resource Resource `bson:"resource"`
+	Actions  []string `bson:"actions"`
 }
 
 type Privileges []Privilege
@@ -88,11 +68,6 @@ type ShortRole struct {
 	DB   string `bson:"db" tfsdk:"db"`
 }
 
-var shortRoleAttributeTypes = map[string]attr.Type{
-	"role": types.StringType,
-	"db":   types.StringType,
-}
-
 type ShortRoles []ShortRole
 
 func (r *ShortRoles) ToTerraformSet(ctx context.Context) (*types.Set, diag.Diagnostics) {
@@ -137,6 +112,19 @@ type Role struct {
 	Roles      ShortRoles `bson:"roles"`
 }
 
-type Result struct {
-	Ok int `bson:"ok"`
+var shortRoleAttributeTypes = map[string]attr.Type{
+	"role": types.StringType,
+	"db":   types.StringType,
+}
+
+var privilegeAttributeTypes = map[string]attr.Type{
+	"resource": types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"db":         types.StringType,
+			"collection": types.StringType,
+		},
+	},
+	"actions": types.SetType{
+		ElemType: types.StringType,
+	},
 }

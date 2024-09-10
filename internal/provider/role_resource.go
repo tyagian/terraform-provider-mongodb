@@ -34,10 +34,10 @@ type RoleResource struct {
 }
 
 type RoleResourceModel struct {
-	Name           types.String `tfsdk:"name"`
-	Database       types.String `tfsdk:"database"`
-	InheritedRoles types.Set    `tfsdk:"inherited_roles"`
-	Privileges     types.Set    `tfsdk:"privileges"`
+	Name       types.String `tfsdk:"name"`
+	Database   types.String `tfsdk:"database"`
+	Roles      types.Set    `tfsdk:"roles"`
+	Privileges types.Set    `tfsdk:"privileges"`
 }
 
 func (r *RoleResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -65,7 +65,7 @@ func (r *RoleResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
-			"inherited_roles": schema.SetNestedAttribute{
+			"roles": schema.SetNestedAttribute{
 				MarkdownDescription: "Set of MongoDB inherited roles",
 				Optional:            true,
 				NestedObject: schema.NestedAttributeObject{
@@ -139,8 +139,8 @@ func (r *RoleResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 
-	var inheritedRoles []mongodb.ShortRole
-	resp.Diagnostics.Append(plan.InheritedRoles.ElementsAs(ctx, &inheritedRoles, false)...)
+	var roles []mongodb.ShortRole
+	resp.Diagnostics.Append(plan.Roles.ElementsAs(ctx, &roles, false)...)
 
 	if resp.Diagnostics.HasError() {
 		return
@@ -157,7 +157,7 @@ func (r *RoleResource) Create(ctx context.Context, req resource.CreateRequest, r
 		Name:       plan.Name.ValueString(),
 		Database:   plan.Database.ValueString(),
 		Privileges: privileges,
-		Roles:      inheritedRoles,
+		Roles:      roles,
 	})
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -200,14 +200,14 @@ func (r *RoleResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	plan.Name = types.StringValue(role.Name)
 	plan.Database = types.StringValue(role.Database)
 
-	// Parse inherited roles
-	inheritedRoles, d := role.Roles.ToTerraformSet(ctx)
+	// Parse roles
+	roles, d := role.Roles.ToTerraformSet(ctx)
 	resp.Diagnostics.Append(d...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	plan.InheritedRoles = *inheritedRoles
+	plan.Roles = *roles
 
 	// Parse privileges
 	privileges, d := role.Privileges.ToTerraformSet(ctx)
@@ -235,8 +235,8 @@ func (r *RoleResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		return
 	}
 
-	var inheritedRoles []mongodb.ShortRole
-	resp.Diagnostics.Append(plan.InheritedRoles.ElementsAs(ctx, &inheritedRoles, false)...)
+	var roles []mongodb.ShortRole
+	resp.Diagnostics.Append(plan.Roles.ElementsAs(ctx, &roles, false)...)
 
 	if resp.Diagnostics.HasError() {
 		return
@@ -253,7 +253,7 @@ func (r *RoleResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		Name:       plan.Name.ValueString(),
 		Database:   plan.Database.ValueString(),
 		Privileges: privileges,
-		Roles:      inheritedRoles,
+		Roles:      roles,
 	})
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -342,14 +342,14 @@ func (r *RoleResource) ImportState(
 	plan.Name = types.StringValue(role.Name)
 	plan.Database = types.StringValue(role.Database)
 
-	// Parse inherited roles
-	inheritedRoles, d := role.Roles.ToTerraformSet(ctx)
+	// Parse roles
+	roles, d := role.Roles.ToTerraformSet(ctx)
 	resp.Diagnostics.Append(d...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	plan.InheritedRoles = *inheritedRoles
+	plan.Roles = *roles
 
 	// Parse privileges
 	privileges, d := role.Privileges.ToTerraformSet(ctx)
@@ -367,7 +367,7 @@ func (r *RoleResource) ImportState(
 func (r *RoleResource) ConfigValidators(ctx context.Context) []resource.ConfigValidator {
 	return []resource.ConfigValidator{
 		resourcevalidator.AtLeastOneOf(
-			path.MatchRoot("inherited_roles"),
+			path.MatchRoot("roles"),
 			path.MatchRoot("privileges"),
 		),
 	}
