@@ -42,6 +42,7 @@ func (c *Client) UpsertUser(ctx context.Context, user *User) (*User, error) {
 		{Key: cmd, Value: user.Username},
 		{Key: "pwd", Value: user.Password},
 		{Key: "roles", Value: user.Roles.toBson()},
+		{Key: "mechanisms", Value: user.Mechanisms},
 	}
 
 	response := c.mongo.Database(user.Database).RunCommand(ctx, command)

@@ -30,10 +30,11 @@ type UserResource struct {
 }
 
 type UserResourceModel struct {
-	Username types.String `tfsdk:"username"`
-	Password types.String `tfsdk:"password"`
-	Database types.String `tfsdk:"database"`
-	Roles    types.Set    `tfsdk:"roles"`
+	Username   types.String `tfsdk:"username"`
+	Password   types.String `tfsdk:"password"`
+	Database   types.String `tfsdk:"database"`
+	Roles      types.Set    `tfsdk:"roles"`
+	Mechanisms types.Set    `tfsdk:"mechanisms"`
 }
 
 func (r *UserResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -84,6 +85,12 @@ func (r *UserResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 					},
 				},
 			},
+			"mechanisms": schema.SetAttribute{
+				MarkdownDescription: "Specify the specific SCRAM mechanism " +
+					"or mechanisms for creating SCRAM user credentials.",
+				ElementType: types.StringType,
+				Optional:    true,
+			},
 		},
 	}
 }
@@ -125,11 +132,18 @@ func (r *UserResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 
+	var mechanisms []string
+	resp.Diagnostics.Append(plan.Mechanisms.ElementsAs(ctx, &mechanisms, false)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	_, err := r.client.UpsertUser(ctx, &mongodb.User{
-		Username: plan.Username.ValueString(),
-		Password: plan.Password.ValueString(),
-		Database: plan.Database.ValueString(),
-		Roles:    roles,
+		Username:   plan.Username.ValueString(),
+		Password:   plan.Password.ValueString(),
+		Database:   plan.Database.ValueString(),
+		Roles:      roles,
+		Mechanisms: mechanisms,
 	})
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -182,6 +196,16 @@ func (r *UserResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 
 	plan.Roles = *roles
 
+	// Parse mechanisms
+	mechanisms, d := types.SetValueFrom(ctx, types.StringType, user.Mechanisms)
+
+	resp.Diagnostics.Append(d...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	plan.Mechanisms = mechanisms
+
 	// Append state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -204,11 +228,18 @@ func (r *UserResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		return
 	}
 
+	var mechanisms []string
+	resp.Diagnostics.Append(plan.Mechanisms.ElementsAs(ctx, &mechanisms, false)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	_, err := r.client.UpsertUser(ctx, &mongodb.User{
-		Username: plan.Username.ValueString(),
-		Password: plan.Password.ValueString(),
-		Database: plan.Database.ValueString(),
-		Roles:    roles,
+		Username:   plan.Username.ValueString(),
+		Password:   plan.Password.ValueString(),
+		Database:   plan.Database.ValueString(),
+		Roles:      roles,
+		Mechanisms: mechanisms,
 	})
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -306,6 +337,16 @@ func (r *UserResource) ImportState(
 	}
 
 	plan.Roles = *roles
+
+	// Parse mechanisms
+	mechanisms, d := types.SetValueFrom(ctx, types.StringType, user.Mechanisms)
+
+	resp.Diagnostics.Append(d...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	plan.Mechanisms = mechanisms
 
 	// Append state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)

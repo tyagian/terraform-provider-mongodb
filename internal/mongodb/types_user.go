@@ -4,8 +4,9 @@ type User struct {
 	Username string `bson:"user"`
 	Password string
 
-	Database string     `bson:"db"`
-	Roles    ShortRoles `bson:"roles"`
+	Database   string     `bson:"db"`
+	Roles      ShortRoles `bson:"roles"`
+	Mechanisms []string   `bson:"mechanisms"`
 }
 
 type Result struct {

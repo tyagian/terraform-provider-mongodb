@@ -24,6 +24,7 @@ MongoDB User resource
 ### Optional
 
 - `database` (String) Auth database name
+- `mechanisms` (Set of String) Specify the specific SCRAM mechanism or mechanisms for creating SCRAM user credentials.
 
 <a id="nestedatt--roles"></a>
 ### Nested Schema for `roles`
