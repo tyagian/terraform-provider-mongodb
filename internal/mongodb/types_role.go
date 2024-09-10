@@ -11,13 +11,13 @@ import (
 )
 
 type Resource struct {
-	DB         string `bson:"db"`
-	Collection string `bson:"collection"`
+	DB         string `bson:"db"         tfsdk:"db"`
+	Collection string `bson:"collection" tfsdk:"collection"`
 }
 
 type Privilege struct {
-	Resource Resource `bson:"resource"`
-	Actions  []string `bson:"actions"`
+	Resource Resource `bson:"resource" tfsdk:"resource"`
+	Actions  []string `bson:"actions"  tfsdk:"actions"`
 }
 
 type Privileges []Privilege
