@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -229,10 +230,17 @@ func (r *UserResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		Database: plan.Database.ValueString(),
 	})
 	if err != nil {
-		resp.Diagnostics.AddError(
-			"failed to get user",
-			err.Error(),
-		)
+		if !errors.Is(err, mongodb.NotFoundError{}) {
+			resp.Diagnostics.AddError(
+				"failed to get user",
+				err.Error(),
+			)
+
+			return
+		}
+
+		tflog.Debug(ctx, "user not found, removing from state")
+		resp.State.RemoveResource(ctx)
 
 		return
 	}
