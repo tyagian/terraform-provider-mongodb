@@ -29,7 +29,7 @@ func (c *Client) UpsertRole(ctx context.Context, role *Role) (*Role, error) {
 	})
 
 	switch {
-	case errors.As(err, &NotFoundError{}):
+	case errors.Is(err, NotFoundError{}):
 		cmd = createRoleCmd
 	case err == nil:
 		cmd = updateRoleCmd

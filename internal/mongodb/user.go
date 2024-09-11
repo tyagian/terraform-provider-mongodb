@@ -30,7 +30,7 @@ func (c *Client) UpsertUser(ctx context.Context, user *User) (*User, error) {
 	_, err := c.GetUser(ctx, getUserOptions)
 
 	switch {
-	case errors.As(err, &NotFoundError{}):
+	case errors.Is(err, NotFoundError{}):
 		cmd = createUserCmd
 	case err == nil:
 		cmd = updateUserCmr
