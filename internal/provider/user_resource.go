@@ -230,7 +230,9 @@ func (r *UserResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		Database: plan.Database.ValueString(),
 	})
 	if err != nil {
-		if !errors.Is(err, mongodb.NotFoundError{}) {
+		notFound := &mongodb.NotFoundError{}
+
+		if !errors.As(err, &notFound) {
 			resp.Diagnostics.AddError(
 				"failed to get user",
 				err.Error(),
