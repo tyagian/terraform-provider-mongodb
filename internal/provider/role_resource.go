@@ -219,9 +219,7 @@ func (r *RoleResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		Database: plan.Database.ValueString(),
 	})
 	if err != nil {
-		notFound := &mongodb.NotFoundError{}
-
-		if !errors.As(err, &notFound) {
+		if !errors.As(err, &mongodb.NotFoundError{}) {
 			resp.Diagnostics.AddError(
 				"failed to get role",
 				err.Error(),
