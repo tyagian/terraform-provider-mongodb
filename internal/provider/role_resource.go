@@ -41,6 +41,13 @@ type RoleResourceModel struct {
 	Privileges types.Set    `tfsdk:"privileges"`
 }
 
+func newRoleResourceModel() RoleResourceModel {
+	return RoleResourceModel{
+		Roles:      types.SetNull(types.ObjectType{AttrTypes: mongodb.ShortRoleAttributeTypes}),
+		Privileges: types.SetNull(types.ObjectType{AttrTypes: mongodb.PrivilegeAttributeTypes}),
+	}
+}
+
 func (r *RoleResourceModel) UpdateState(ctx context.Context, role *mongodb.Role) diag.Diagnostics {
 	diags := diag.Diagnostics{}
 
@@ -155,7 +162,7 @@ func (r *RoleResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 
-	var plan RoleResourceModel
+	plan := newRoleResourceModel()
 
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
@@ -207,7 +214,7 @@ func (r *RoleResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		return
 	}
 
-	var plan RoleResourceModel
+	plan := newRoleResourceModel()
 
 	resp.Diagnostics.Append(req.State.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
@@ -247,7 +254,7 @@ func (r *RoleResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		return
 	}
 
-	var plan RoleResourceModel
+	plan := newRoleResourceModel()
 
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
@@ -299,7 +306,7 @@ func (r *RoleResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 		return
 	}
 
-	var plan RoleResourceModel
+	plan := newRoleResourceModel()
 	resp.Diagnostics.Append(req.State.Get(ctx, &plan)...)
 
 	if resp.Diagnostics.HasError() {
@@ -350,7 +357,7 @@ func (r *RoleResource) ImportState(
 		return
 	}
 
-	plan := RoleResourceModel{}
+	plan := newRoleResourceModel()
 
 	role, err := r.client.GetRole(ctx, &mongodb.GetRoleOptions{
 		Name:     name,

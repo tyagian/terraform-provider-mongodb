@@ -42,6 +42,13 @@ type UserResourceModel struct {
 	Mechanisms types.Set    `tfsdk:"mechanisms"`
 }
 
+func newUserResourceModel() UserResourceModel {
+	return UserResourceModel{
+		Roles:      types.SetNull(types.ObjectType{AttrTypes: mongodb.ShortRoleAttributeTypes}),
+		Mechanisms: types.SetNull(types.StringType),
+	}
+}
+
 func (u *UserResourceModel) GetMechanisms(ctx context.Context, ptr *[]string) diag.Diagnostics {
 	diags := diag.Diagnostics{}
 
@@ -70,10 +77,12 @@ func (u *UserResourceModel) UpdateState(ctx context.Context, user *mongodb.User)
 
 	u.Roles = *roles
 
-	// DocumentDB does not return mechanisms, keep the value same as in plan.
-	// mechanisms, d := types.SetValueFrom(ctx, types.StringType, user.Mechanisms)
-	// diags.Append(d...)
-	// userModel.Mechanisms = mechanisms
+	// DocumentDB does not return mechanisms.
+	// If that's the case - keep the value same as in plan.
+	if len(user.Mechanisms) > 0 {
+		u.Mechanisms, d = types.SetValueFrom(ctx, types.StringType, user.Mechanisms)
+		diags.Append(d...)
+	}
 
 	return diags
 }
@@ -134,6 +143,7 @@ func (r *UserResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 					"or mechanisms for creating SCRAM user credentials.",
 				ElementType: types.StringType,
 				Optional:    true,
+				Computed:    true,
 			},
 		},
 	}
@@ -163,7 +173,7 @@ func (r *UserResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 
-	var plan UserResourceModel
+	var plan = newUserResourceModel()
 
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
@@ -218,7 +228,7 @@ func (r *UserResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		return
 	}
 
-	var plan UserResourceModel
+	var plan = newUserResourceModel()
 
 	resp.Diagnostics.Append(req.State.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
@@ -258,7 +268,7 @@ func (r *UserResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		return
 	}
 
-	var plan *UserResourceModel
+	var plan = newUserResourceModel()
 
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
@@ -313,7 +323,7 @@ func (r *UserResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 		return
 	}
 
-	var plan UserResourceModel
+	var plan = newUserResourceModel()
 
 	resp.Diagnostics.Append(req.State.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
@@ -364,7 +374,7 @@ func (r *UserResource) ImportState(
 		return
 	}
 
-	plan := &UserResourceModel{}
+	var plan = newUserResourceModel()
 
 	user, err := r.client.GetUser(ctx, &mongodb.GetUserOptions{
 		Username: username,
