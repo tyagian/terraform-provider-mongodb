@@ -26,11 +26,11 @@ func (p *Privileges) ToTerraformSet(ctx context.Context) (*types.Set, diag.Diagn
 	var privileges []basetypes.ObjectValue
 
 	privilegeType := types.ObjectType{
-		AttrTypes: privilegeAttributeTypes,
+		AttrTypes: PrivilegeAttributeTypes,
 	}
 
 	for _, privilege := range *p {
-		privilegeObject, d := types.ObjectValueFrom(ctx, privilegeAttributeTypes, privilege)
+		privilegeObject, d := types.ObjectValueFrom(ctx, PrivilegeAttributeTypes, privilege)
 
 		if d.HasError() {
 			return nil, d
@@ -74,11 +74,11 @@ func (r *ShortRoles) ToTerraformSet(ctx context.Context) (*types.Set, diag.Diagn
 	var roles []basetypes.ObjectValue
 
 	roleType := types.ObjectType{
-		AttrTypes: shortRoleAttributeTypes,
+		AttrTypes: ShortRoleAttributeTypes,
 	}
 
 	for _, role := range *r {
-		roleObject, d := types.ObjectValueFrom(ctx, shortRoleAttributeTypes, role)
+		roleObject, d := types.ObjectValueFrom(ctx, ShortRoleAttributeTypes, role)
 
 		if d.HasError() {
 			return nil, d
@@ -112,12 +112,12 @@ type Role struct {
 	Roles      ShortRoles `bson:"roles"`
 }
 
-var shortRoleAttributeTypes = map[string]attr.Type{
+var ShortRoleAttributeTypes = map[string]attr.Type{
 	"role": types.StringType,
 	"db":   types.StringType,
 }
 
-var privilegeAttributeTypes = map[string]attr.Type{
+var PrivilegeAttributeTypes = map[string]attr.Type{
 	"resource": types.ObjectType{
 		AttrTypes: map[string]attr.Type{
 			"db":         types.StringType,
