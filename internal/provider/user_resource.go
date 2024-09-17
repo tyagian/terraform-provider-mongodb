@@ -70,10 +70,13 @@ func (u *UserResourceModel) UpdateState(ctx context.Context, user *mongodb.User)
 
 	u.Roles = *roles
 
-	// DocumentDB does not return mechanisms, keep the value same as in plan.
-	// mechanisms, d := types.SetValueFrom(ctx, types.StringType, user.Mechanisms)
-	// diags.Append(d...)
-	// userModel.Mechanisms = mechanisms
+	// DocumentDB does not return mechanisms.
+	// If that's the case - keep the value same as in plan.
+	if len(user.Mechanisms) > 0 {
+		mechanisms, d := types.SetValueFrom(ctx, types.StringType, user.Mechanisms)
+		diags.Append(d...)
+		u.Mechanisms = mechanisms
+	}
 
 	return diags
 }
@@ -134,6 +137,7 @@ func (r *UserResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 					"or mechanisms for creating SCRAM user credentials.",
 				ElementType: types.StringType,
 				Optional:    true,
+				Computed:    true,
 			},
 		},
 	}
@@ -364,7 +368,7 @@ func (r *UserResource) ImportState(
 		return
 	}
 
-	plan := &UserResourceModel{}
+	plan := UserResourceModel{}
 
 	user, err := r.client.GetUser(ctx, &mongodb.GetUserOptions{
 		Username: username,
