@@ -95,7 +95,7 @@ linters:
     # - stylecheck
     - tagalign
     - tagliatelle
-    - tenv
+    - usetesting
     # - testableexamples
     - testifylint
     # - testpackage
