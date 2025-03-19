@@ -16,102 +16,38 @@ type GetIndexOptions struct {
 }
 
 func (c *Client) CreateIndex(ctx context.Context, index *Index) (*Index, error) {
-
 	tflog.Debug(ctx, "CreateIndex", map[string]interface{}{
 		"database":   index.Database,
 		"collection": index.Collection,
 		"name":       index.Name,
 	})
 
-	isWildcardIndex := false
-	if _, exists := index.Keys["$**"]; exists {
-		isWildcardIndex = true
-	}
-
-	is2dIndex := false
-
-	for _, value := range index.Keys {
-		if value == "2d" {
-			is2dIndex = true
-
-			break
-		}
-	}
-
-	isTextIndex := false
-
-	for _, value := range index.Keys {
-		if value == "text" {
-			isTextIndex = true
-
-			break
-		}
-	}
-
-	version := DefaultIndexVersion
-
 	opts := options.Index().
-		SetName(index.Name).
-		SetVersion(version)
+		SetName(index.Name)
 
-	if index.Options.Unique {
-		opts.SetUnique(index.Options.Unique)
-	}
-
-	if index.Options.Sparse {
-		opts.SetSparse(index.Options.Sparse)
-	}
-
-	if index.Options.Hidden {
-		opts.SetHidden(index.Options.Hidden)
-	}
-
-	if is2dIndex {
-		if index.Options.Bits > 0 {
-			opts.SetBits(index.Options.Bits)
-		}
-
-		if index.Options.Min != 0 {
-			opts.SetMin(index.Options.Min)
-		}
-
-		if index.Options.Max != 0 {
-			opts.SetMax(index.Options.Max)
-		}
-	}
-
-	if isTextIndex {
-		if index.Options.Weights != nil {
-			opts.SetWeights(index.Options.Weights)
-		}
-
-		if index.Options.DefaultLanguage != "" {
-			opts.SetDefaultLanguage(index.Options.DefaultLanguage)
-		}
-
-		if index.Options.LanguageOverride != "" {
-			opts.SetLanguageOverride(index.Options.LanguageOverride)
-		}
-
-		if index.Options.TextIndexVersion > 0 {
-			opts.SetTextVersion(index.Options.TextIndexVersion)
-		}
-	}
-
-	if index.Options.ExpireAfterSeconds > 0 && !isWildcardIndex {
-		opts.SetExpireAfterSeconds(index.Options.ExpireAfterSeconds)
-	}
-
-	if index.Options.Collation != nil {
-		opts.SetCollation(index.Options.Collation)
-	}
+	opts.Unique = index.Options.Unique
+	opts.Sparse = index.Options.Sparse
+	opts.Hidden = index.Options.Hidden
+	opts.Collation = index.Options.Collation
+	opts.ExpireAfterSeconds = index.Options.ExpireAfterSeconds
+	opts.SphereVersion = index.Options.SphereVersion
+	opts.Bits = index.Options.Bits
+	opts.Min = index.Options.Min
+	opts.Max = index.Options.Max
+	opts.DefaultLanguage = index.Options.DefaultLanguage
+	opts.LanguageOverride = index.Options.LanguageOverride
+	opts.TextVersion = index.Options.TextIndexVersion
 
 	if len(index.Options.PartialFilterExpression) > 0 {
 		opts.PartialFilterExpression = index.Options.PartialFilterExpression
 	}
 
-	if isWildcardIndex && len(index.Options.WildcardProjection) > 0 {
+	if len(index.Options.WildcardProjection) > 0 {
 		opts.WildcardProjection = index.Options.WildcardProjection
+	}
+
+	if len(index.Options.Weights) > 0 {
+		opts.Weights = index.Options.Weights
 	}
 
 	indexModel := mongo.IndexModel{
@@ -121,13 +57,10 @@ func (c *Client) CreateIndex(ctx context.Context, index *Index) (*Index, error) 
 
 	collection := c.mongo.Database(index.Database).Collection(index.Collection)
 
-	indexName, err := collection.Indexes().CreateOne(ctx, indexModel)
+	_, err := collection.Indexes().CreateOne(ctx, indexModel)
 	if err != nil {
 		return nil, fmt.Errorf("error creating index: %w", err)
 	}
-
-	index.Name = indexName
-	index.Options.Version = version
 
 	return c.GetIndex(ctx, &GetIndexOptions{
 		Name:       index.Name,
@@ -136,8 +69,8 @@ func (c *Client) CreateIndex(ctx context.Context, index *Index) (*Index, error) 
 	})
 }
 
-func (c *Client) GetIndex(ctx context.Context, options *GetIndexOptions) (*Index, error) {
-	collection := c.mongo.Database(options.Database).Collection(options.Collection)
+func (c *Client) GetIndex(ctx context.Context, opt *GetIndexOptions) (*Index, error) {
+	collection := c.mongo.Database(opt.Database).Collection(opt.Collection)
 	cursor, err := collection.Indexes().List(ctx)
 	if err != nil {
 		return nil, err
@@ -162,29 +95,16 @@ func (c *Client) GetIndex(ctx context.Context, options *GetIndexOptions) (*Index
 	})
 
 	for i := range indexes {
-		if indexes[i].Name == options.Name {
-			indexes[i].Database = options.Database
-			indexes[i].Collection = options.Collection
-
-			if _, hasFts := indexes[i].Keys["_fts"]; hasFts {
-				indexes[i].Keys = make(IndexKeys)
-				for field := range indexes[i].Options.Weights {
-					indexes[i].Keys[field] = "text"
-				}
-			}
-
-			if value, exists := indexes[i].Keys["$**"]; exists {
-				if intValue, ok := value.(int32); ok && intValue == 1 {
-					indexes[i].Keys["$**"] = "wildcard"
-				}
-			}
+		if indexes[i].Name == opt.Name {
+			indexes[i].Database = opt.Database
+			indexes[i].Collection = opt.Collection
 
 			return &indexes[i], nil
 		}
 	}
 
 	return nil, NotFoundError{
-		name: options.Name,
+		name: opt.Name,
 		t:    "index",
 	}
 }

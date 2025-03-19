@@ -48,7 +48,7 @@ func newRoleResourceModel() RoleResourceModel {
 	}
 }
 
-func (r *RoleResourceModel) UpdateState(ctx context.Context, role *mongodb.Role) diag.Diagnostics {
+func (r *RoleResourceModel) updateState(ctx context.Context, role *mongodb.Role) diag.Diagnostics {
 	diags := diag.Diagnostics{}
 
 	r.Name = types.StringValue(role.Name)
@@ -200,7 +200,7 @@ func (r *RoleResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 
-	resp.Diagnostics.Append(plan.UpdateState(ctx, role)...)
+	resp.Diagnostics.Append(plan.updateState(ctx, role)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -241,7 +241,7 @@ func (r *RoleResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		return
 	}
 
-	resp.Diagnostics.Append(plan.UpdateState(ctx, role)...)
+	resp.Diagnostics.Append(plan.updateState(ctx, role)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -292,7 +292,7 @@ func (r *RoleResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		return
 	}
 
-	resp.Diagnostics.Append(plan.UpdateState(ctx, role)...)
+	resp.Diagnostics.Append(plan.updateState(ctx, role)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -372,7 +372,7 @@ func (r *RoleResource) ImportState(
 		return
 	}
 
-	resp.Diagnostics.Append(plan.UpdateState(ctx, role)...)
+	resp.Diagnostics.Append(plan.updateState(ctx, role)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

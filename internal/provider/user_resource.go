@@ -66,7 +66,7 @@ func (u *UserResourceModel) GetMechanisms(ctx context.Context, ptr *[]string) di
 	return diags
 }
 
-func (u *UserResourceModel) UpdateState(ctx context.Context, user *mongodb.User) diag.Diagnostics {
+func (u *UserResourceModel) updateState(ctx context.Context, user *mongodb.User) diag.Diagnostics {
 	diags := diag.Diagnostics{}
 
 	u.Username = types.StringValue(user.Username)
@@ -214,7 +214,7 @@ func (r *UserResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 
-	resp.Diagnostics.Append(plan.UpdateState(ctx, user)...)
+	resp.Diagnostics.Append(plan.updateState(ctx, user)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -255,7 +255,7 @@ func (r *UserResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		return
 	}
 
-	resp.Diagnostics.Append(plan.UpdateState(ctx, user)...)
+	resp.Diagnostics.Append(plan.updateState(ctx, user)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -309,7 +309,7 @@ func (r *UserResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		return
 	}
 
-	resp.Diagnostics.Append(plan.UpdateState(ctx, user)...)
+	resp.Diagnostics.Append(plan.updateState(ctx, user)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -389,7 +389,7 @@ func (r *UserResource) ImportState(
 		return
 	}
 
-	resp.Diagnostics.Append(plan.UpdateState(ctx, user)...)
+	resp.Diagnostics.Append(plan.updateState(ctx, user)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
