@@ -23,6 +23,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
@@ -104,10 +105,17 @@ func (ind *IndexResourceModel) updateState(ctx context.Context, index *mongodb.I
 	ind.Collection = types.StringValue(index.Collection)
 	ind.Name = types.StringValue(index.Name)
 
+	// Parse keys
 	keys, d := types.MapValueFrom(ctx, types.StringType, index.Keys.ToStringMap())
+
 	diags.Append(d...)
+	if diags.HasError() {
+		return diags
+	}
+
 	ind.Keys = keys
 
+	// Parse collation
 	if index.Options.Collation != nil {
 		collation := CollationModel{
 			Locale:          types.StringValue(index.Options.Collation.Locale),
@@ -121,16 +129,41 @@ func (ind *IndexResourceModel) updateState(ctx context.Context, index *mongodb.I
 		}
 
 		ind.Collation, d = types.ObjectValueFrom(ctx, collation.AttributeTypes(), collation)
+	} else {
+		ind.Collation = types.ObjectNull(CollationModel{}.AttributeTypes())
 	}
 
-	wildcardProjection, d := types.MapValueFrom(ctx, types.Int32Type, ind.WildcardProjection)
+	// Parse wildcard projection
+	wildcardProjection, d := types.MapValueFrom(ctx, types.Int32Type, index.Options.WildcardProjection)
+
 	diags.Append(d...)
+	if diags.HasError() {
+		return diags
+	}
+
 	ind.WildcardProjection = wildcardProjection
 
-	partialFilterExpression, d := types.MapValueFrom(ctx, types.StringType, ind.PartialFilterExpression)
+	// Parse partial filter expression
+	partialFilterExpression, d := types.MapValueFrom(ctx, types.StringType, index.Options.PartialFilterExpression)
+
 	diags.Append(d...)
+	if diags.HasError() {
+		return diags
+	}
+
 	ind.PartialFilterExpression = partialFilterExpression
 
+	// Parse weights
+	weights, d := types.MapValueFrom(ctx, types.Int32Type, index.Options.Weights)
+
+	diags.Append(d...)
+	if diags.HasError() {
+		return diags
+	}
+
+	ind.Weights = weights
+
+	// Simple data types
 	if index.Options.Unique != nil {
 		ind.Unique = types.BoolPointerValue(index.Options.Unique)
 	}
@@ -142,8 +175,6 @@ func (ind *IndexResourceModel) updateState(ctx context.Context, index *mongodb.I
 	if index.Options.Hidden != nil {
 		ind.Hidden = types.BoolPointerValue(index.Options.Hidden)
 	}
-
-	ind.ExpireAfterSeconds = types.Int32PointerValue(index.Options.ExpireAfterSeconds)
 
 	if index.Options.SphereVersion != nil {
 		ind.SphereVersion = types.Int32PointerValue(index.Options.SphereVersion)
@@ -161,16 +192,13 @@ func (ind *IndexResourceModel) updateState(ctx context.Context, index *mongodb.I
 		ind.Max = types.Float64PointerValue(index.Options.Max)
 	}
 
-	weights, d := types.MapValueFrom(ctx, types.Int32Type, ind.Weights)
-	diags.Append(d...)
-	ind.Weights = weights
-
-	ind.DefaultLanguage = types.StringPointerValue(index.Options.DefaultLanguage)
-	ind.LanguageOverride = types.StringPointerValue(index.Options.LanguageOverride)
-
 	if index.Options.TextIndexVersion != nil {
 		ind.TextIndexVersion = types.Int32PointerValue(index.Options.TextIndexVersion)
 	}
+
+	ind.ExpireAfterSeconds = types.Int32PointerValue(index.Options.ExpireAfterSeconds)
+	ind.DefaultLanguage = types.StringPointerValue(index.Options.DefaultLanguage)
+	ind.LanguageOverride = types.StringPointerValue(index.Options.LanguageOverride)
 
 	return diags
 }
@@ -207,6 +235,8 @@ func (r *IndexResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 			"collation": schema.SingleNestedAttribute{
 				Description: "Collation settings for string comparison",
 				Optional:    true,
+				Computed:    true,
+				Default:     objectdefault.StaticValue(types.ObjectNull(CollationModel{}.AttributeTypes())),
 				PlanModifiers: []planmodifier.Object{
 					objectplanmodifier.RequiresReplace(),
 				},
