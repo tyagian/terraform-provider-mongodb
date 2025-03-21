@@ -5,14 +5,46 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 type GetIndexOptions struct {
 	Name       string
 	Database   string
 	Collection string
+}
+
+// setIndexOptions is a workaround to use pointers. As an alternative, we can check each option for nil and then set it.
+func setIndexOptions(index *Index) func(*options.IndexOptions) error {
+	return func(opts *options.IndexOptions) error {
+		opts.Unique = index.Options.Unique
+		opts.Sparse = index.Options.Sparse
+		opts.Hidden = index.Options.Hidden
+		opts.Collation = index.Options.Collation
+		opts.ExpireAfterSeconds = index.Options.ExpireAfterSeconds
+		opts.SphereVersion = index.Options.SphereVersion
+		opts.Bits = index.Options.Bits
+		opts.Min = index.Options.Min
+		opts.Max = index.Options.Max
+		opts.DefaultLanguage = index.Options.DefaultLanguage
+		opts.LanguageOverride = index.Options.LanguageOverride
+		opts.TextVersion = index.Options.TextIndexVersion
+
+		if len(index.Options.PartialFilterExpression) > 0 {
+			opts.PartialFilterExpression = index.Options.PartialFilterExpression
+		}
+
+		if len(index.Options.WildcardProjection) > 0 {
+			opts.WildcardProjection = index.Options.WildcardProjection
+		}
+
+		if len(index.Options.Weights) > 0 {
+			opts.Weights = index.Options.Weights
+		}
+
+		return nil
+	}
 }
 
 func (c *Client) CreateIndex(ctx context.Context, index *Index) (*Index, error) {
@@ -25,30 +57,7 @@ func (c *Client) CreateIndex(ctx context.Context, index *Index) (*Index, error) 
 	opts := options.Index().
 		SetName(index.Name)
 
-	opts.Unique = index.Options.Unique
-	opts.Sparse = index.Options.Sparse
-	opts.Hidden = index.Options.Hidden
-	opts.Collation = index.Options.Collation
-	opts.ExpireAfterSeconds = index.Options.ExpireAfterSeconds
-	opts.SphereVersion = index.Options.SphereVersion
-	opts.Bits = index.Options.Bits
-	opts.Min = index.Options.Min
-	opts.Max = index.Options.Max
-	opts.DefaultLanguage = index.Options.DefaultLanguage
-	opts.LanguageOverride = index.Options.LanguageOverride
-	opts.TextVersion = index.Options.TextIndexVersion
-
-	if len(index.Options.PartialFilterExpression) > 0 {
-		opts.PartialFilterExpression = index.Options.PartialFilterExpression
-	}
-
-	if len(index.Options.WildcardProjection) > 0 {
-		opts.WildcardProjection = index.Options.WildcardProjection
-	}
-
-	if len(index.Options.Weights) > 0 {
-		opts.Weights = index.Options.Weights
-	}
+	opts.Opts = append(opts.Opts, setIndexOptions(index))
 
 	indexModel := mongo.IndexModel{
 		Keys:    index.Keys.toBson(),
@@ -117,7 +126,6 @@ func (c *Client) DeleteIndex(ctx context.Context, options *GetIndexOptions) erro
 	})
 
 	collection := c.mongo.Database(options.Database).Collection(options.Collection)
-	_, err := collection.Indexes().DropOne(ctx, options.Name)
 
-	return err
+	return collection.Indexes().DropOne(ctx, options.Name)
 }
