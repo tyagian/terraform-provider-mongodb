@@ -6,8 +6,8 @@ import (
 	"crypto/x509"
 	"errors"
 
-	"go.mongodb.org/mongo-driver/mongo"
-	mongooptions "go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	mongooptions "go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 type ClientOptions struct {
@@ -56,7 +56,7 @@ func New(ctx context.Context, options *ClientOptions) (*Client, error) {
 		opt.SetTLSConfig(tlsConfig)
 	}
 
-	mongoClient, err := mongo.Connect(ctx, opt)
+	mongoClient, err := mongo.Connect(opt)
 	if err != nil {
 		return nil, err
 	}
