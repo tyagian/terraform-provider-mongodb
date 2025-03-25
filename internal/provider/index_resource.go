@@ -783,7 +783,7 @@ func (r *IndexResource) ImportState(
 	resp *resource.ImportStateResponse,
 ) {
 	idParts := strings.Split(req.ID, ".")
-	if len(idParts) != 3 {
+	if len(idParts) < 3 {
 		resp.Diagnostics.AddError(
 			"Invalid import ID",
 			"Import ID should be in the format: database.collection.index_name",
@@ -794,7 +794,7 @@ func (r *IndexResource) ImportState(
 
 	database := idParts[0]
 	collection := idParts[1]
-	indexName := idParts[2]
+	indexName := strings.Join(idParts[2:], ".")
 
 	var plan IndexResourceModel
 
