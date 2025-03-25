@@ -23,7 +23,7 @@ type Privilege struct {
 type Privileges []Privilege
 
 func (p *Privileges) ToTerraformSet(ctx context.Context) (*types.Set, diag.Diagnostics) {
-	var privileges []basetypes.ObjectValue
+	privileges := make([]basetypes.ObjectValue, 0, len(*p))
 
 	privilegeType := types.ObjectType{
 		AttrTypes: PrivilegeAttributeTypes,
@@ -71,7 +71,7 @@ type ShortRole struct {
 type ShortRoles []ShortRole
 
 func (r *ShortRoles) ToTerraformSet(ctx context.Context) (*types.Set, diag.Diagnostics) {
-	var roles []basetypes.ObjectValue
+	roles := make([]basetypes.ObjectValue, 0, len(*r))
 
 	roleType := types.ObjectType{
 		AttrTypes: ShortRoleAttributeTypes,

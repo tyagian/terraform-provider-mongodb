@@ -129,6 +129,11 @@ func (ind *IndexResourceModel) updateState(ctx context.Context, index *mongodb.I
 		}
 
 		ind.Collation, d = types.ObjectValueFrom(ctx, collation.AttributeTypes(), collation)
+
+		diags.Append(d...)
+		if diags.HasError() {
+			return diags
+		}
 	} else {
 		ind.Collation = types.ObjectNull(CollationModel{}.AttributeTypes())
 	}
@@ -495,6 +500,7 @@ func (r *IndexResource) ValidateConfig(
 	}
 
 	var keysMap map[string]string
+
 	resp.Diagnostics.Append(config.Keys.ElementsAs(ctx, &keysMap, false)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -628,7 +634,6 @@ func (r *IndexResource) Create(ctx context.Context, req resource.CreateRequest, 
 			MaxVariable:     collation.MaxVariable.ValueString(),
 			Backwards:       collation.Backwards.ValueBool(),
 		}
-
 	}
 
 	// Parse keys
@@ -685,6 +690,7 @@ func (r *IndexResource) Create(ctx context.Context, req resource.CreateRequest, 
 			"Error creating MongoDB index",
 			err.Error(),
 		)
+
 		return
 	}
 
@@ -716,6 +722,7 @@ func (r *IndexResource) Read(ctx context.Context, req resource.ReadRequest, resp
 	if err != nil {
 		if errors.As(err, &mongodb.NotFoundError{}) {
 			resp.State.RemoveResource(ctx)
+
 			return
 		}
 
@@ -808,6 +815,7 @@ func (r *IndexResource) ImportState(
 			"Error importing index",
 			fmt.Sprintf("Failed to read index %s: %s", req.ID, err),
 		)
+
 		return
 	}
 
@@ -825,6 +833,7 @@ func (r *IndexResource) checkClient(diag diag.Diagnostics) bool {
 			"MongoDB client is not configured",
 			"Expected configured MongoDB client. Please report this issue to the provider developers.",
 		)
+
 		return false
 	}
 
