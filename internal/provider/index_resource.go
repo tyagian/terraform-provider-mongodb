@@ -2,9 +2,9 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/float64validator"
@@ -83,7 +83,7 @@ type IndexResourceModel struct {
 	Keys                    types.Map     `tfsdk:"keys"`
 	Collation               types.Object  `tfsdk:"collation"`
 	WildcardProjection      types.Map     `tfsdk:"wildcard_projection"`
-	PartialFilterExpression types.Map     `tfsdk:"partial_filter_expression"`
+	PartialFilterExpression types.String  `tfsdk:"partial_filter_expression"`
 	Unique                  types.Bool    `tfsdk:"unique"`
 	Sparse                  types.Bool    `tfsdk:"sparse"`
 	Hidden                  types.Bool    `tfsdk:"hidden"`
@@ -149,14 +149,14 @@ func (ind *IndexResourceModel) updateState(ctx context.Context, index *mongodb.I
 	ind.WildcardProjection = wildcardProjection
 
 	// Parse partial filter expression
-	partialFilterExpression, d := types.MapValueFrom(ctx, types.StringType, index.Options.PartialFilterExpression)
+	partialFilterExpression, err := json.Marshal(index.Options.PartialFilterExpression)
+	if err != nil {
+		diags.AddError("Failed to parse partial filter expression", err.Error())
 
-	diags.Append(d...)
-	if diags.HasError() {
 		return diags
 	}
 
-	ind.PartialFilterExpression = partialFilterExpression
+	ind.PartialFilterExpression = types.StringValue(string(partialFilterExpression))
 
 	// Parse weights
 	weights, d := types.MapValueFrom(ctx, types.Int32Type, index.Options.Weights)
@@ -350,21 +350,11 @@ func (r *IndexResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 					boolplanmodifier.RequiresReplace(),
 				},
 			},
-			"partial_filter_expression": schema.MapAttribute{
-				// TODO: Implement proper document support
-				Description: "Filter expression that limits indexed documents. Only supports strings.",
+			"partial_filter_expression": schema.StringAttribute{
+				Description: "JSON encoded filter expression that limits indexed documents.",
 				Optional:    true,
-				ElementType: types.StringType,
-				PlanModifiers: []planmodifier.Map{
-					mapplanmodifier.RequiresReplace(),
-				},
-				Validators: []validator.Map{
-					mapvalidator.KeysAre(
-						stringvalidator.RegexMatches(
-							regexp.MustCompile(`^[a-zA-Z0-9_.]+(\.\$[a-zA-Z0-9]+)?$`),
-							"Valid field name or field with operator",
-						),
-					),
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"expire_after_seconds": schema.Int32Attribute{
@@ -526,43 +516,13 @@ func (r *IndexResource) ValidateConfig(
 		return
 	}
 
-	var filterExpr map[string]string
+	var filterExpr map[string]interface{}
 
-	diags := config.PartialFilterExpression.ElementsAs(ctx, &filterExpr, false)
-	if diags.HasError() {
-		resp.Diagnostics.Append(diags...)
-		resp.Diagnostics.AddError(
-			"Error parsing partial filter expression",
-			"Failed to parse filter expression data")
+	err := json.Unmarshal([]byte(config.PartialFilterExpression.ValueString()), &filterExpr)
+	if err != nil {
+		resp.Diagnostics.AddError("Failed to parse partial filter expression json", err.Error())
 
 		return
-	}
-
-	validOperators := map[string]bool{
-		"$eq": true, "$exists": true, "$gt": true, "$gte": true,
-		"$lt": true, "$lte": true, "$type": true, "$and": true,
-		"$or": true, "$in": true,
-	}
-
-	for k := range filterExpr {
-		if !strings.Contains(k, ".$") {
-			continue
-		}
-
-		parts := strings.Split(k, ".$")
-		if len(parts) <= 1 {
-			continue
-		}
-
-		op := "$" + parts[1]
-		if !validOperators[op] {
-			resp.Diagnostics.AddError(
-				"Invalid partial filter expression",
-				fmt.Sprintf("Operator %s is not supported. "+
-					"Supported operators: $eq, $exists, $gt, $gte, $lt, $lte, $type, $and, $or, $in", op))
-
-			return
-		}
 	}
 }
 
@@ -662,14 +622,12 @@ func (r *IndexResource) Create(ctx context.Context, req resource.CreateRequest, 
 
 	// Parse PartialFilterExpression
 	if !plan.PartialFilterExpression.IsNull() && !plan.PartialFilterExpression.IsUnknown() {
-		partialFilterExpression := make(map[string]string)
-		resp.Diagnostics.Append(plan.PartialFilterExpression.ElementsAs(ctx, &partialFilterExpression, false)...)
+		err := json.Unmarshal([]byte(plan.PartialFilterExpression.ValueString()), &index.Options.PartialFilterExpression)
+		if err != nil {
+			resp.Diagnostics.AddError("Failed to parse partial filter expression json", err.Error())
 
-		if resp.Diagnostics.HasError() {
 			return
 		}
-
-		index.Options.PartialFilterExpression = mongodb.ConvertMap(partialFilterExpression, false)
 	}
 
 	// Parse Weights

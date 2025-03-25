@@ -32,7 +32,7 @@ Manages MongoDB indexes
 - `language_override` (String) Field name that contains document language
 - `max` (Number) Maximum value for 2d index
 - `min` (Number) Minimum value for 2d index
-- `partial_filter_expression` (Map of String) Filter expression that limits indexed documents. Only supports strings.
+- `partial_filter_expression` (String) JSON encoded filter expression that limits indexed documents.
 - `sparse` (Boolean) Whether the index should be sparse
 - `sphere_index_version` (Number) The index version number for a 2dsphere index
 - `text_index_version` (Number) Text index version number
