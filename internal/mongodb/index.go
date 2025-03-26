@@ -80,6 +80,7 @@ func (c *Client) CreateIndex(ctx context.Context, index *Index) (*Index, error) 
 
 func (c *Client) GetIndex(ctx context.Context, opt *GetIndexOptions) (*Index, error) {
 	collection := c.mongo.Database(opt.Database).Collection(opt.Collection)
+
 	cursor, err := collection.Indexes().List(ctx)
 	if err != nil {
 		return nil, err

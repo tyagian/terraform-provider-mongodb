@@ -26,5 +26,5 @@ type FailedCommandError struct {
 }
 
 func (e FailedCommandError) Error() string {
-	return fmt.Sprintf("%s command failed", e.Cmd)
+	return e.Cmd + " command failed"
 }
