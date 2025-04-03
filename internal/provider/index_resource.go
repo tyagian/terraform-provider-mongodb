@@ -149,14 +149,16 @@ func (ind *IndexResourceModel) updateState(ctx context.Context, index *mongodb.I
 	ind.WildcardProjection = wildcardProjection
 
 	// Parse partial filter expression
-	partialFilterExpression, err := json.Marshal(index.Options.PartialFilterExpression)
-	if err != nil {
-		diags.AddError("Failed to parse partial filter expression", err.Error())
+	if len(index.Options.PartialFilterExpression) > 0 {
+		partialFilterExpression, err := json.Marshal(index.Options.PartialFilterExpression)
+		if err != nil {
+			diags.AddError("Failed to parse partial filter expression", err.Error())
 
-		return diags
+			return diags
+		}
+
+		ind.PartialFilterExpression = types.StringValue(string(partialFilterExpression))
 	}
-
-	ind.PartialFilterExpression = types.StringValue(string(partialFilterExpression))
 
 	// Parse weights
 	weights, d := types.MapValueFrom(ctx, types.Int32Type, index.Options.Weights)
