@@ -344,8 +344,6 @@ func (r *IndexResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 			"unique": schema.BoolAttribute{
 				Description: "Whether the index enforces unique values",
 				Optional:    true,
-				Computed:    true,
-				Default:     booldefault.StaticBool(false),
 				PlanModifiers: []planmodifier.Bool{
 					boolplanmodifier.RequiresReplace(),
 				},
