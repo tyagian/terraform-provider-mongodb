@@ -115,6 +115,7 @@ func (r *RoleResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 			"privileges": schema.SetNestedAttribute{
 				MarkdownDescription: "Set of the privileges to grant the role",
 				Optional:            true,
+				Computed:            true,
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"resource": schema.ObjectAttribute{
@@ -172,17 +173,21 @@ func (r *RoleResource) Create(ctx context.Context, req resource.CreateRequest, r
 	// Parse roles
 	var roles []mongodb.ShortRole
 
-	resp.Diagnostics.Append(plan.Roles.ElementsAs(ctx, &roles, false)...)
-	if resp.Diagnostics.HasError() {
-		return
+	if !plan.Roles.IsNull() && !plan.Roles.IsUnknown() {
+		resp.Diagnostics.Append(plan.Roles.ElementsAs(ctx, &roles, false)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
 	}
 
 	// Parse privileges
 	var privileges []mongodb.Privilege
 
-	resp.Diagnostics.Append(plan.Privileges.ElementsAs(ctx, &privileges, false)...)
-	if resp.Diagnostics.HasError() {
-		return
+	if !plan.Privileges.IsNull() && !plan.Privileges.IsUnknown() {
+		resp.Diagnostics.Append(plan.Privileges.ElementsAs(ctx, &privileges, false)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
 	}
 
 	role, err := r.client.UpsertRole(ctx, &mongodb.Role{
